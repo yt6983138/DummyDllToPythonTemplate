@@ -53,6 +53,9 @@ public class Program
 		new("assembly-csharp", "The location of Assembly-CSharp.dll.", 'a',
 			(s, p) => p.AssemblyCSharpLocation = File.Exists(s) ? s : throw new ArgumentException("Assembly-CSharp.dll does not exist."),
 			(_, _2) => throw new ArgumentException("assembly-csharp option must be present.")),
+		new("il2cpp-dummy-dll", "The location of Il2CppDummyDll.dll.", 'i',
+			(s, p) => p.Il2CppDummyDllLocation = File.Exists(s) ? s : throw new ArgumentException("Il2CppDummyDll.dll does not exist."),
+			(_, _2) => throw new ArgumentException("assembly-csharp option must be present.")),
 		new("output-file", "The output location of generated python file.", 'o',
 			(s, p) => p.OutputLocation = new FileInfo(s).Directory is null ? throw new ArgumentException("Output directory does not exist.") : s),
 		new("verbose", "Verbose mode. True if present.", 'v',
@@ -60,6 +63,7 @@ public class Program
 	};
 	public bool Verbose { get; set; } = false;
 	public string AssemblyCSharpLocation { get; set; } = null!;
+	public string Il2CppDummyDllLocation { get; set; } = null!;
 	public string? OutputLocation { get; set; }
 	public Type FieldOffsetAttribute { get; private set; } = null!;
 	public FieldInfo FieldOffsetField { get; private set; } = null!;
@@ -152,9 +156,8 @@ public class Program
 	{
 		this.LogVerbose("Loading asm csharp from {0}", this.AssemblyCSharpLocation);
 		Assembly assemblyCSharp = Assembly.LoadFrom(this.AssemblyCSharpLocation);
-		this.FieldOffsetAttribute = AppDomain.CurrentDomain.GetAssemblies()
-			.First(x => x.GetName().Name == "Il2CppDummyDll")
-			.GetType("FieldOffsetAttribute")!;
+		Assembly il2cppDummy = Assembly.LoadFrom(this.Il2CppDummyDllLocation);
+		this.FieldOffsetAttribute = il2cppDummy.GetTypes().First(x => x.Name == "FieldOffsetAttribute");
 		this.FieldOffsetField = this.FieldOffsetAttribute.GetField("Offset")!;
 		this.LogVerbose("Load success, finding game info");
 		Type? gameInformation = assemblyCSharp.GetType(GameInformationTypePath);
