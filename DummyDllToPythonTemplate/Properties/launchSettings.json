@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DummyDllToPythonTemplate": {
+      "commandName": "Project",
+      "commandLineArgs": "-a \"G:\\Large files\\main.82.com.PigeonGames.Phigros\\il2cpp dump\\DummyDll\\Assembly-CSharp.dll\""
+    }
+  }
+}
