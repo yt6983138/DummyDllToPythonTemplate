@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using System.Text;
+using System.Text.Json;
 
 namespace DummyDllToPythonTemplate;
 
@@ -37,10 +37,10 @@ public class Program
 	public Program(string[] args)
 	{
 		#region Argument parsing
-		if (args.Contains("--help"))
+		if (args.Length == 0 || args.Contains("--help"))
 		{
 			ShowHelp();
-			return;
+			Environment.Exit(0);
 		}
 		List<ArgParseInfo> invokeList = new();
 		for (int i = 0; i < args.Length; i++)
@@ -52,7 +52,7 @@ public class Program
 				{
 					Console.WriteLine($"No option associated with argument '{args[i]}'.");
 					ShowHelp();
-					return;
+					Environment.Exit(0);
 				}
 				if (i < args.Length - 1 && !args[i + 1].StartsWith('-'))
 				{
@@ -83,7 +83,7 @@ public class Program
 			}
 			Console.WriteLine($"Invalid option '{args[i]}'.");
 			ShowHelp();
-			return;
+			Environment.Exit(0);
 		}
 		foreach (ArgParseInfo info in this.AllowedArgs)
 		{
@@ -102,7 +102,7 @@ public class Program
 		{
 			Console.WriteLine("--help: Show this help.");
 			foreach (ArgParseInfo info in this.AllowedArgs)
-				Console.WriteLine($"--{info.Name}{(info.Shortcut == ' ' ? "" : $", {info.Shortcut}")}: {info.Description}");
+				Console.WriteLine($"--{info.Name}{(info.Shortcut == ' ' ? "" : $", -{info.Shortcut}")}: {info.Description}");
 		}
 		#endregion
 	}
@@ -140,16 +140,30 @@ public class Program
 			.Select(x => new FieldOffsetPair(this, x!, 0, "class_declaration"))
 			.ToList()
 			.DumpInternal();
+
+		if (this.OutputPythonLocation is null && this.OutputJsonLocation is null)
+			this.LogCritical("No output arg detected, exiting.");
+
 		if (this.OutputJsonLocation is not null)
 		{
+			this.LogInfo("Writing json...");
+			JsonSerializerOptions option = new();
+			option.Converters.Add(new FieldOffsetPairJsonConverter());
 
+			string result = JsonSerializer.Serialize(infos, option);
+			result.DumpInternal();
+			File.WriteAllText(this.OutputJsonLocation, result);
 		}
-		MemoryStream stream = new();
-		StreamWriter writer = new(stream);
-		new PythonClassWriter(writer).WriteClasses(infos);
-		writer.Close();
-		stream.Close();
-		Console.WriteLine(Encoding.UTF8.GetString(stream.GetBuffer()));
+		if (this.OutputPythonLocation is not null)
+		{
+			this.LogInfo("Writing python...");
+			MemoryStream stream = new();
+			StreamWriter writer = new(stream);
+			new PythonClassWriter(writer).WriteClasses(infos);
+			writer.Close();
+			stream.Close();
+			File.WriteAllBytes(this.OutputPythonLocation, stream.GetBuffer());
+		}
 		this.LogInfo("Done");
 	}
 }
