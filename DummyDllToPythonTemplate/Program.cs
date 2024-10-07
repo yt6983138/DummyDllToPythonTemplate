@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Text;
 
 namespace DummyDllToPythonTemplate;
 
@@ -18,15 +19,18 @@ public class Program
 		new("il2cpp-dummy-dll", "The location of Il2CppDummyDll.dll.", 'i',
 			(s, p) => p.Il2CppDummyDllLocation = File.Exists(s) ? s : throw new ArgumentException("Il2CppDummyDll.dll does not exist."),
 			(_, _2) => throw new ArgumentException("il2cpp-dummy-dll option must be present.")),
-		new("output-file", "The output location of generated python file.", 'o',
-			(s, p) => p.OutputLocation = new FileInfo(s).Directory is null ? throw new ArgumentException("Output directory does not exist.") : s),
+		new("output-py", "The output location of generated python file.", 'p',
+			(s, p) => p.OutputPythonLocation = new FileInfo(s).Directory is null ? throw new ArgumentException("Output directory does not exist.") : s),
+		new("output-json", "The output location of generated python file.", 'j',
+			(s, p) => p.OutputJsonLocation = new FileInfo(s).Directory is null ? throw new ArgumentException("Output directory does not exist.") : s),
 		new("verbose", "Verbose mode. True if present.", 'v',
 			(_, p) => p.Verbose = true)
 	};
 	public bool Verbose { get; internal set; } = false;
 	public string AssemblyCSharpLocation { get; internal set; } = null!;
 	public string Il2CppDummyDllLocation { get; internal set; } = null!;
-	public string? OutputLocation { get; internal set; }
+	public string? OutputPythonLocation { get; internal set; }
+	public string? OutputJsonLocation { get; internal set; }
 	public Type FieldOffsetAttribute { get; private set; } = null!;
 	public FieldInfo FieldOffsetField { get; private set; } = null!;
 
@@ -133,9 +137,19 @@ public class Program
 		this.LogInfo("Load success, loading types");
 		List<FieldOffsetPair> infos = this.TypesToDump
 			.Select(assemblyCSharp.GetType)
-			.Select(x => new FieldOffsetPair(this, x!, 0))
+			.Select(x => new FieldOffsetPair(this, x!, 0, "class_declaration"))
 			.ToList()
 			.DumpInternal();
+		if (this.OutputJsonLocation is not null)
+		{
+
+		}
+		MemoryStream stream = new();
+		StreamWriter writer = new(stream);
+		new PythonClassWriter(writer).WriteClasses(infos);
+		writer.Close();
+		stream.Close();
+		Console.WriteLine(Encoding.UTF8.GetString(stream.GetBuffer()));
 		this.LogInfo("Done");
 	}
 }

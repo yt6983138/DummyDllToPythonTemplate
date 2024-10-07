@@ -11,12 +11,14 @@ public class FieldOffsetPair
 	public Type Type { get; private set; }
 	public int Offset { get; }
 	public List<FieldOffsetPair>? SubFields { get; }
+	public string Name { get; }
 
-	internal FieldOffsetPair(Program program, Type type, int offset, bool findSubFields = true)
+	internal FieldOffsetPair(Program program, Type type, int offset, string name, bool findSubFields = true)
 	{
 		this.Type = type;
 		this.Offset = offset;
 		this.SubFields = new();
+		this.Name = name;
 
 		if (!findSubFields)
 		{
@@ -58,13 +60,14 @@ public class FieldOffsetPair
 
 			int fieldOffset = Convert.ToInt32((string)program.FieldOffsetField.GetValue(item.GetCustomAttribute(program.FieldOffsetAttribute))!, 16);
 
-			FieldOffsetPair toAdd = new(program, elementType ?? fieldType, fieldOffset, shouldFindFields);
+			FieldOffsetPair toAdd = new(program, elementType ?? fieldType, fieldOffset, item.Name, shouldFindFields);
 			if (elementType is not null)
 				toAdd.Type = fieldType;
 			this.SubFields!.Add(toAdd);
 		}
 		if (this.SubFields!.Count == 0)
 			this.SubFields = null;
+		this.SubFields?.Sort((x, y) => x.Offset.CompareTo(y.Offset));
 	}
 
 	public override string ToString()
