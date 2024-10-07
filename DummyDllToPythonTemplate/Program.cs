@@ -7,46 +7,8 @@ public class Program
 {
 	public static void Main(string[] args) => new Program(args).Run();
 
-
-	public record class FieldOffsetPair(Type Type, int Offset, List<FieldOffsetPair>? SubFields)
-	{
-		public static readonly string[] DisallowedFindFieldTypes = ["Int32", "Int16", "Byte", "Boolean", "Single", "String", "Dictionary`2"];
-
-		internal FieldOffsetPair(Program program, Type type, int offset)
-			: this(type, offset, new())
-		{
-			IEnumerable<FieldInfo> subFields = type.GetFields()
-				.Where(x => x.IsPublic && !x.IsStatic);
-			foreach (FieldInfo item in subFields)
-			{
-				Type declaringType = item.DeclaringType!;
-				if (DisallowedFindFieldTypes.Contains(declaringType.Name))
-					continue;
-				if (declaringType.IsArray)
-				{
-					if (!declaringType.IsSZArray)
-						continue; // jagged
-					Type elementType = declaringType.GetElementType()!;
-					if (elementType.IsArray)
-						continue; // like type[][]
-				}
-				if (declaringType.Name == "List`1")
-				{
-					Type generic = declaringType.GetGenericArguments()[0];
-					if (generic.IsArray || generic.Name == "List`1")
-						continue;
-				}
-
-				int fieldOffset = Convert.ToInt32((string)program.FieldOffsetField.GetValue(item.GetCustomAttribute(program.FieldOffsetAttribute))!, 16);
-
-				this.SubFields!.Add(new(program, declaringType, fieldOffset));
-			}
-			if (this.SubFields!.Count == 0)
-				this.SubFields = null;
-		}
-	}
-
-	public const string GameInformationTypePath = "GameInformation";
+	public string[] TypesToDump { get; } =
+		["AvatarInfo", "CollectionItemIndex", "Key", "SongsItem"]; // used type will be dumped automatically
 
 	public List<ArgParseInfo> AllowedArgs { get; } = new()
 	{
@@ -55,16 +17,16 @@ public class Program
 			(_, _2) => throw new ArgumentException("assembly-csharp option must be present.")),
 		new("il2cpp-dummy-dll", "The location of Il2CppDummyDll.dll.", 'i',
 			(s, p) => p.Il2CppDummyDllLocation = File.Exists(s) ? s : throw new ArgumentException("Il2CppDummyDll.dll does not exist."),
-			(_, _2) => throw new ArgumentException("assembly-csharp option must be present.")),
+			(_, _2) => throw new ArgumentException("il2cpp-dummy-dll option must be present.")),
 		new("output-file", "The output location of generated python file.", 'o',
 			(s, p) => p.OutputLocation = new FileInfo(s).Directory is null ? throw new ArgumentException("Output directory does not exist.") : s),
 		new("verbose", "Verbose mode. True if present.", 'v',
 			(_, p) => p.Verbose = true)
 	};
-	public bool Verbose { get; set; } = false;
-	public string AssemblyCSharpLocation { get; set; } = null!;
-	public string Il2CppDummyDllLocation { get; set; } = null!;
-	public string? OutputLocation { get; set; }
+	public bool Verbose { get; internal set; } = false;
+	public string AssemblyCSharpLocation { get; internal set; } = null!;
+	public string Il2CppDummyDllLocation { get; internal set; } = null!;
+	public string? OutputLocation { get; internal set; }
 	public Type FieldOffsetAttribute { get; private set; } = null!;
 	public FieldInfo FieldOffsetField { get; private set; } = null!;
 
@@ -141,10 +103,15 @@ public class Program
 		#endregion
 	}
 
+	#region Logging
 	internal void LogVerbose(string format, params object[] arg)
 	{
 		if (this.Verbose)
 			Console.WriteLine(format, arg);
+	}
+	internal void LogInfo(string format, params object[] arg)
+	{
+		Console.WriteLine(format, arg);
 	}
 	[DoesNotReturn]
 	internal void LogCritical(string format, params object[] arg)
@@ -152,17 +119,23 @@ public class Program
 		Console.WriteLine(format, arg);
 		Environment.Exit(1);
 	}
+	#endregion
+
 	public void Run()
 	{
-		this.LogVerbose("Loading asm csharp from {0}", this.AssemblyCSharpLocation);
+		this.LogVerbose("Initializing {0}", this.AssemblyCSharpLocation);
 		Assembly assemblyCSharp = Assembly.LoadFrom(this.AssemblyCSharpLocation);
+		this.LogVerbose("Initializing {0}", this.Il2CppDummyDllLocation);
 		Assembly il2cppDummy = Assembly.LoadFrom(this.Il2CppDummyDllLocation);
+		this.LogVerbose("Initializing FieldOffsetAttribute");
 		this.FieldOffsetAttribute = il2cppDummy.GetTypes().First(x => x.Name == "FieldOffsetAttribute");
 		this.FieldOffsetField = this.FieldOffsetAttribute.GetField("Offset")!;
-		this.LogVerbose("Load success, finding game info");
-		Type? gameInformation = assemblyCSharp.GetType(GameInformationTypePath);
-		if (gameInformation is null)
-			this.LogCritical("GameInformation not found!");
-		FieldOffsetPair test = new(this, gameInformation, 0);
+		this.LogInfo("Load success, loading types");
+		List<FieldOffsetPair> infos = this.TypesToDump
+			.Select(assemblyCSharp.GetType)
+			.Select(x => new FieldOffsetPair(this, x!, 0))
+			.ToList()
+			.DumpInternal();
+		this.LogInfo("Done");
 	}
 }
