@@ -13,15 +13,15 @@ public class Program
 
 	public List<ArgParseInfo> AllowedArgs { get; } = new()
 	{
-		new("assembly-csharp", "The location of Assembly-CSharp.dll.", 'a',
+		new("assembly-csharp", "(*)The location of Assembly-CSharp.dll.", 'a',
 			(s, p) => p.AssemblyCSharpLocation = File.Exists(s) ? s : throw new ArgumentException("Assembly-CSharp.dll does not exist."),
 			(_, _2) => throw new ArgumentException("assembly-csharp option must be present.")),
-		new("il2cpp-dummy-dll", "The location of Il2CppDummyDll.dll.", 'i',
+		new("il2cpp-dummy-dll", "(*)The location of Il2CppDummyDll.dll.", 'i',
 			(s, p) => p.Il2CppDummyDllLocation = File.Exists(s) ? s : throw new ArgumentException("Il2CppDummyDll.dll does not exist."),
 			(_, _2) => throw new ArgumentException("il2cpp-dummy-dll option must be present.")),
 		new("output-py", "The output location of generated python file.", 'p',
 			(s, p) => p.OutputPythonLocation = new FileInfo(s).Directory is null ? throw new ArgumentException("Output directory does not exist.") : s),
-		new("output-json", "The output location of generated python file.", 'j',
+		new("output-json", "The output location of generated json file.", 'j',
 			(s, p) => p.OutputJsonLocation = new FileInfo(s).Directory is null ? throw new ArgumentException("Output directory does not exist.") : s),
 		new("verbose", "Verbose mode. True if present.", 'v',
 			(_, p) => p.Verbose = true)
@@ -100,7 +100,7 @@ public class Program
 		}
 		void ShowHelp()
 		{
-			Console.WriteLine("--help: Show this help.");
+			Console.WriteLine("--help: Show this help, (*) means required.");
 			foreach (ArgParseInfo info in this.AllowedArgs)
 				Console.WriteLine($"--{info.Name}{(info.Shortcut == ' ' ? "" : $", -{info.Shortcut}")}: {info.Description}");
 		}
