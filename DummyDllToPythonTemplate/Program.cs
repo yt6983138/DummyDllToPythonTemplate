@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 
 namespace DummyDllToPythonTemplate;
@@ -47,7 +48,7 @@ public class Program
 		{
 			if (args[i].StartsWith("--") && args[i].Length > 2)
 			{
-				ArgParseInfo? info = this.AllowedArgs.FirstOrDefault(x => x.Name == args[i].Replace("-", ""));
+				ArgParseInfo? info = this.AllowedArgs.FirstOrDefault(x => x.Name == args[i][2..]);
 				if (info is null)
 				{
 					Console.WriteLine($"No option associated with argument '{args[i]}'.");
@@ -70,7 +71,7 @@ public class Program
 				{
 					Console.WriteLine($"No option associated with shortcut '{args[i]}'.");
 					ShowHelp();
-					return;
+					Environment.Exit(0);
 				}
 				if (i < args.Length - 1 && !args[i + 1].StartsWith('-'))
 				{
@@ -157,12 +158,9 @@ public class Program
 		if (this.OutputPythonLocation is not null)
 		{
 			this.LogInfo("Writing python...");
-			MemoryStream stream = new();
-			StreamWriter writer = new(stream);
-			new PythonClassWriter(writer).WriteClasses(infos);
-			writer.Close();
-			stream.Close();
-			File.WriteAllBytes(this.OutputPythonLocation, stream.GetBuffer());
+			StringBuilder sb = new();
+			new PythonClassWriter(sb).WriteClasses(infos);
+			File.WriteAllText(this.OutputPythonLocation, sb.ToString().DumpInternal(), Encoding.UTF8);
 		}
 		this.LogInfo("Done");
 	}

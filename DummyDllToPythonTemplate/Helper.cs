@@ -12,6 +12,7 @@ internal static class Helper
 		{ typeof(short), "short" },
 		{ typeof(string), "str" },
 		{ typeof(float), "float" },
+		{ typeof(bool), "bool" },
 		{ typeof(Enum), "int" }
 	};
 
@@ -61,6 +62,7 @@ internal static class Helper
 			KeyValuePair<Type, string> def2 = CSharpPythonTypeMap.FirstOrDefault(x => item.Type.IsAssignableTo(x.Key));
 			writer.WriteField(item.Name, def2.Value is null ? item.Type.Name : def2.Value, indentionLevel);
 		}
+		writer.Output.Append('\n');
 	}
 	internal static void WriteClasses(this PythonClassWriter writer, IEnumerable<FieldOffsetPair> pairs)
 	{
